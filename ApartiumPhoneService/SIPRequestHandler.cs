@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using ApartiumPhoneService.Managers;
 using Microsoft.Extensions.Logging;
 using SIPSorcery.Media;
 using SIPSorcery.SIP;
@@ -10,16 +11,14 @@ namespace ApartiumPhoneService;
 /// <summary>
 /// <c>SIPRequestHandler</c> Handles a SIP request
 /// </summary>
-/// <param name="server">the SIP server</param>
-/// <param name="sipRequest">the SIP request</param>
-/// <param name="sipEndPoint">the SIP endpoint</param>
-/// <param name="remoteEndPoint">the remote end point</param>
 public class SIPRequestHandler
 {
     /// <summary>
     /// The phone server
     /// </summary>
     private readonly ApartiumPhoneServer _server;
+    
+    private readonly SIPCallManager _callManager;
     
     /// <summary>
     /// The user agent factory
@@ -50,15 +49,13 @@ public class SIPRequestHandler
     /// Constructs the sip request handler
     /// </summary>
     /// <param name="server">The phone server to handle the requests</param>
-    /// <param name="userAgentFactory">The user agent factory</param>
-    /// <param name="audioPlayer">The audio player</param>
-    /// <param name="logger">The logger for logging information</param>
-    public SIPRequestHandler(ApartiumPhoneServer server, SIPUserAgentFactory userAgentFactory, VoIpAudioPlayer audioPlayer, ILogger logger)
+    public SIPRequestHandler(ApartiumPhoneServer server)
     {
         _server = server;
-        _userAgentFactory = userAgentFactory;
-        _audioPlayer = audioPlayer;
-        _logger = logger;
+        _callManager = server.GetCallManager();
+        _userAgentFactory = server.GetSIPUserAgentFactory();
+        _audioPlayer = new VoIpAudioPlayer();
+        _logger = ApartiumPhoneServer.GetLogger();
 
         _keysPressed = [];
         _keySounds = new ConcurrentDictionary<char, VoIpSound>();
@@ -113,13 +110,13 @@ public class SIPRequestHandler
     /// <summary>
     /// Thread lock object for locking the play selected numbers and avoiding data races
     /// </summary>
-    private readonly object _threadLock = new();
-    
+    private readonly object _keyLock = new();
+
     /// <summary>
     /// Using ManualReset for freezing the DTMF thread until the welcome & explanation sound is finished.
     /// </summary>
     private readonly ManualResetEvent _manualReset = new(false);
-    
+
     /// <summary>
     /// Handles incoming call
     /// </summary>
@@ -154,15 +151,8 @@ public class SIPRequestHandler
         
         await sipUserAgent.Answer(serverUserAgent, voIpMediaSession);
         
-        var call = new SIPOngoingCall(sipUserAgent, serverUserAgent, _audioPlayer);
-        if (!_server.TryAddCall(sipUserAgent.Dialogue().CallId, call))
-        {
-            _logger.LogWarning("Could not add call to active calls");
-        }
-
-        await Task.Run(() => _audioPlayer.Play(VoIpSound.WelcomeSound));
-        await Task.Run(() => _audioPlayer.Play(VoIpSound.ExplanationSound));
-        _manualReset.Set(); // signaling the thread to continue.
+        var call = new SIPCall(sipUserAgent, serverUserAgent, _manualReset, _audioPlayer);
+        await _callManager.StartCall(call);
     }
 
     /// <summary>
@@ -172,7 +162,7 @@ public class SIPRequestHandler
     private void OnHangup(SIPDialogue dialogue)
     {
         var callId = dialogue.CallId;
-        var call = _server.TryRemoveCall(callId);
+        var call = _server.GetCallManager().TryRemoveCall(callId);
 
         // This app only uses each SIP user agent once so here the agent is 
         // explicitly closed to prevent is responding to any new SIP requests.
@@ -181,8 +171,6 @@ public class SIPRequestHandler
         _logger.LogInformation("Stopped audio");
     }
 
-    private readonly object _keyLock = new();
-    
     /// <summary>
     /// Handles DTMF tones received from client
     /// </summary>
@@ -212,7 +200,7 @@ public class SIPRequestHandler
                 break;
             
             case '#':
-                lock (_threadLock)
+                lock (_keyLock)
                 {
                     PlaySelectedNumbers();
                     break;
@@ -234,17 +222,17 @@ public class SIPRequestHandler
             _audioPlayer.Play(VoIpSound.NumbersNotFound);
             return;
         }
-        
-        foreach (var sound in _keysPressed.Select(GetVoIpSound))
+
+        var keysCopy = _keysPressed.ToList();
+        foreach (var sound in keysCopy.Select(GetVoIpSound))
         {
+            
+            
             _audioPlayer.Play(sound);
         }
-
-        lock (_keyLock)
-        {
-            _keysPressed.Clear();
-            _logger.LogInformation("Cleared the keys pressed");
-        }
+            
+        _keysPressed.Clear();
+        _logger.LogInformation("Cleared the keys pressed");
     }
 
     /// <summary>
@@ -266,9 +254,9 @@ public class SIPRequestHandler
     {
         var voIpSounds = VoIpSound.Values();
 
-        for (var i = 1; i < voIpSounds.Length; i++)
+        for (var i = 0; i < voIpSounds.Length; i++)
         {
-            var key = (i - 1).ToString()[0];
+            var key = i.ToString()[0];
             _keySounds.TryAdd(key, voIpSounds[i]);
         }
     }
@@ -280,6 +268,10 @@ public class SIPRequestHandler
     /// <returns>The sound of the key that was pressed</returns>
     private VoIpSound GetVoIpSound(char keyPressed)
     {
-        return _keySounds[keyPressed];
+        VoIpSound? voIpSound = _keySounds[keyPressed];
+        if (voIpSound == null)
+            return VoIpSound.NumbersNotFound;
+        
+        return voIpSound;
     }
 }

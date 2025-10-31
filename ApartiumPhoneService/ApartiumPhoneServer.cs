@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using System.Net;
+using ApartiumPhoneService.Managers;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -20,16 +20,6 @@ public class ApartiumPhoneServer
     private const string LocalHostIpv6Cmd = "lv6";
 
     /// <summary>
-    /// a dictionary that keeps track of an active calls on the server
-    /// </summary>
-    private readonly ConcurrentDictionary<string, SIPOngoingCall> _calls = new();
-
-    /// <summary>
-    /// Provides our registered account and other related data
-    /// </summary>
-    private readonly ConfigDataProvider _configDataProvider;
-
-    /// <summary>
     /// The server sip transport that manages channels
     /// </summary>
     private readonly SIPTransport _sipTransport;
@@ -43,10 +33,9 @@ public class ApartiumPhoneServer
     /// The server ip address
     /// </summary>
     private IPAddress _address;
-    
-    /// <summary>
-    /// UserAgent factory
-    /// </summary>
+
+    private readonly SIPCallManager _callManager;
+    private readonly ConfigDataProvider _configDataProvider;
     private readonly SIPUserAgentFactory _sipUserAgentFactory;
 
     /// <summary>
@@ -58,15 +47,44 @@ public class ApartiumPhoneServer
         _sipTransport = new SIPTransport();
         _configDataProvider = new ConfigDataProvider(serverFilePath);
         _sipUserAgentFactory = new SIPUserAgentFactory();
+
+        _callManager = new SIPCallManager();
     }
 
     /// <summary>
     /// Gets the sip transport of our server
     /// </summary>
-    /// <returns></returns>
+    /// <returns>the sip transport</returns>
     public virtual SIPTransport GetSipTransport()
     {
         return _sipTransport;
+    }
+
+    /// <summary>
+    /// Gets the sip user agent factory
+    /// </summary>
+    /// <returns>tje user agent factory</returns>
+    public SIPUserAgentFactory GetSIPUserAgentFactory()
+    {
+        return _sipUserAgentFactory;
+    }
+
+    /// <summary>
+    /// Gets our logger for debugging purposes
+    /// </summary>
+    /// <returns>logger for debugging</returns>
+    public static Microsoft.Extensions.Logging.ILogger GetLogger()
+    {
+        return Logger;
+    }
+
+    /// <summary>
+    /// Gets our call manager
+    /// </summary>
+    /// <returns>call manager</returns>
+    public SIPCallManager GetCallManager()
+    {
+        return _callManager;
     }
 
     /// <summary>
@@ -89,8 +107,8 @@ public class ApartiumPhoneServer
             LocalHostIpv6Cmd => LocalHostIpV6Address,
             _ => ip
         };
-        
-        IPAddress address = null;
+
+        IPAddress? address;
         try
         {
             address = IPAddress.Parse(ip);
@@ -152,11 +170,7 @@ public class ApartiumPhoneServer
         if (Console.LargestWindowWidth != 0)
         {
             Console.ReadKey(true);
-            
-            foreach (var call in _calls.Values)
-            {
-                call.Hangup();
-            }
+            _callManager.Flush();
         }
 
         Logger.LogInformation("Exiting...");
@@ -177,10 +191,10 @@ public class ApartiumPhoneServer
             return;
         }
 
-        var sipRequestHandler = new SIPRequestHandler(this, _sipUserAgentFactory, new VoIpAudioPlayer(), InitLogger<SIPRequestHandler>());
+        var sipRequestHandler = new SIPRequestHandler(this);
         await sipRequestHandler.Handle(sipRequest, localSipEndPoint, remoteEndPoint);
     }
-    
+
     /// <summary>
     /// Starts accounts registrations
     /// </summary>
@@ -208,28 +222,6 @@ public class ApartiumPhoneServer
             // Start the thread to perform the initial registration and then periodically resend it.
             regUserAgent.Start();
         }
-    }
-
-    /// <summary>
-    /// Tries to add the call to the active calls
-    /// </summary>
-    /// <param name="callId">the call id</param>
-    /// <param name="call">the ongoing call</param>
-    /// <returns>True if succeeded, false otherwise</returns>
-    public virtual bool TryAddCall(string callId, SIPOngoingCall call)
-    {
-        return _calls.TryAdd(callId, call);
-    }
-    
-    /// <summary>
-    /// Tries to remove the active call
-    /// </summary>
-    /// <param name="callId"></param>
-    /// <returns>the removed call, otherwise null</returns>
-    public virtual SIPOngoingCall? TryRemoveCall(string callId)
-    {
-        _calls.TryRemove(callId, out var call);
-        return call;
     }
 
     /// <summary>

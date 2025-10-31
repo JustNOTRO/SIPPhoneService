@@ -3,6 +3,9 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace ApartiumPhoneService;
 
+/// <summary>
+/// Provides our registered account and other related data
+/// </summary>
 public class ConfigDataProvider
 {
     private readonly string _path;
@@ -24,12 +27,11 @@ public class ConfigDataProvider
         var yamlContent = File.ReadAllText(_path);
         var accounts = _deserializer.Deserialize<AccountsProvider>(yamlContent);
         
-        
         return [..accounts.Accounts];
     }
 }
 
 public class AccountsProvider
 {
-    public virtual List<SIPRegisteredAccount> Accounts { get; set; }
+    public virtual List<SIPRegisteredAccount> Accounts { get; }
 }

@@ -51,7 +51,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
 
@@ -95,7 +95,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call_When_Call_Cancelled()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -135,10 +135,10 @@ public class SIPRequestHandlerTest
         _userAgentMock.Object.Dialogue().CallId = "123";
         
         _serverMock.Setup(x => x.TryRemoveCall(It.Is<string>(callId => callId != "123")))
-            .Returns((SIPOngoingCall)null)
+            .Returns((SIPCall)null)
             .Verifiable();
         
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -176,10 +176,10 @@ public class SIPRequestHandlerTest
         _userAgentMock.Object.Dialogue().CallId = "123";
         
         _serverMock.Setup(x => x.TryRemoveCall(It.Is<string>(callId => callId != "123")))
-            .Returns((SIPOngoingCall)null)
+            .Returns((SIPCall)null)
             .Verifiable();
         
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -187,7 +187,7 @@ public class SIPRequestHandlerTest
             .Returns(true)
             .Verifiable();
         
-        var sipOngoingCallMock = new Mock<SIPOngoingCall>(_userAgentMock.Object, _serverUaMock.Object,  _voIpAudioPlayerMock.Object);
+        var sipOngoingCallMock = new Mock<SIPCall>(_userAgentMock.Object, _serverUaMock.Object,  _voIpAudioPlayerMock.Object);
         sipOngoingCallMock.Setup(x => x.Hangup())
             .CallBase()
             .Verifiable();
@@ -217,7 +217,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call_On_Dtmf()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -257,7 +257,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call_On_Dtmf_When_Hash_Pressed()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -307,7 +307,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call_On_Dtmf_When_Only_Hash_Pressed()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
@@ -357,7 +357,7 @@ public class SIPRequestHandlerTest
     public async Task TestHandle_Incoming_Call_On_Dtmf_When_Asterisk_Pressed()
     {
         // Arrange
-        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPOngoingCall>()))
+        _serverMock.Setup(x => x.TryAddCall(It.IsAny<string>(), It.IsAny<SIPCall>()))
             .Returns(true)
             .Verifiable();
         
