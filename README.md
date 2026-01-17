@@ -14,7 +14,7 @@ Follow these steps to set up and run the project:
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/JustNOTRO/ApartiumPhoneService
+   git clone https://github.com/JustNOTRO/SIPPhoneService.git
    ```
 
 2. Navigate to the project directory:
