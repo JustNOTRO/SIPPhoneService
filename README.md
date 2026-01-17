@@ -1,4 +1,4 @@
-# ApartiumPhoneService
+# SIPPhoneService
 
 A SIP Server implemented in C# using the SIPSorcery library to communicate with clients.
 
